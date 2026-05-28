@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수능 최소비용 성적분석</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Black+Han+Sans&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   설계 방향: 아날로그 시험지 + 데이터 터미널의 결합.
+   누런 모눈 종이 위에 빨간 채점펜, 그리고 등급/비용은
+   모노스페이스 터미널 톤으로. (에디토리얼 + 유틸리티)
+   ========================================================= */
+:root{
+  --paper:#f4efe2;
+  --paper-line:#e0d8c3;
+  --ink:#2b2722;
+  --ink-soft:#6b6356;
+  --red:#d2382c;
+  --red-soft:#e8a8a2;
+  --blue:#2f5d8a;
+  --green:#3f7d4e;
+  --amber:#c98a1e;
+  --accent:#1a1714;
+  --card:#fbf8ef;
+  --shadow:rgba(43,39,34,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Gowun Dodum',sans-serif;
+  background:var(--paper);
+  background-image:
+    linear-gradient(var(--paper-line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--paper-line) 1px,transparent 1px);
+  background-size:26px 26px;
+  color:var(--ink);
+  line-height:1.7;
+  padding-bottom:80px;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+
+/* ---------- 헤더 ---------- */
+header{
+  padding:54px 0 30px;
+  border-bottom:3px double var(--ink);
+  margin-bottom:8px;
+}
+.kicker{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:.72rem;letter-spacing:.32em;
+  color:var(--red);text-transform:uppercase;
+  margin-bottom:10px;
+}
+h1{
+  font-family:'Black Han Sans',sans-serif;
+  font-size:clamp(2.4rem,6vw,4rem);
+  line-height:.98;letter-spacing:-.01em;
+  color:var(--accent);
+}
+h1 .stamp{
+  display:inline-block;color:var(--red);
+  border:3px solid var(--red);border-radius:6px;
+  padding:0 .18em;transform:rotate(-4deg);
+  font-size:.7em;vertical-align:middle;margin-left:.1em;
+}
+.lead{
+  margin-top:16px;max-width:640px;
+  color:var(--ink-soft);font-size:1.02rem;
+}
+
+/* ---------- 섹션 공통 ---------- */
+section{margin-top:42px}
+.sec-head{
+  display:flex;align-items:baseline;gap:14px;
+  margin-bottom:18px;
+}
+.sec-no{
+  font-family:'IBM Plex Mono',monospace;
+  font-weight:600;color:var(--red);
+  font-size:.85rem;border:1.5px solid var(--red);
+  border-radius:50%;width:30px;height:30px;
+  display:grid;place-items:center;flex:none;
+}
+.sec-head h2{
+  font-family:'Black Han Sans',sans-serif;
+  font-size:1.5rem;color:var(--accent);font-weight:400;
+}
+.sec-head .hint{
+  font-size:.84rem;color:var(--ink-soft);margin-left:auto;
+}
+
+/* ---------- 과목 탭 ---------- */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.tab{
+  font-family:'IBM Plex Mono',monospace;font-size:.8rem;
+  padding:8px 15px;border:1.5px solid var(--ink);
+  background:transparent;color:var(--ink);cursor:pointer;
+  border-radius:2px;transition:all .15s;position:relative;
+}
+.tab:hover{background:var(--ink);color:var(--paper)}
+.tab.active{background:var(--ink);color:var(--paper)}
+.tab .badge{
+  font-size:.68rem;margin-left:6px;opacity:.7;
+}
+.tab.done::after{
+  content:"✓";position:absolute;top:-7px;right:-7px;
+  background:var(--green);color:#fff;font-size:.6rem;
+  width:16px;height:16px;border-radius:50%;
+  display:grid;place-items:center;
+}
+
+/* ---------- 선택과목 드롭다운 ---------- */
+.elective-bar{
+  display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+  background:var(--card);border:1.5px dashed var(--ink-soft);
+  padding:14px 16px;border-radius:4px;margin-bottom:20px;
+}
+.elective-bar label{font-size:.86rem;color:var(--ink-soft)}
+.elective-bar select{
+  font-family:'IBM Plex Mono',monospace;font-size:.85rem;
+  padding:6px 10px;border:1.5px solid var(--ink);
+  background:var(--paper);color:var(--ink);border-radius:2px;
+}
+
+/* ---------- 문제 그리드 ---------- */
+.omr{
+  background:var(--card);
+  border:1.5px solid var(--ink);
+  padding:18px;border-radius:4px;
+  box-shadow:4px 4px 0 var(--shadow);
+}
+.omr-tools{
+  display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;
+  padding-bottom:14px;border-bottom:1px dashed var(--paper-line);
+}
+.btn-mini{
+  font-family:'IBM Plex Mono',monospace;font-size:.74rem;
+  padding:5px 11px;border:1.5px solid var(--ink-soft);
+  background:transparent;color:var(--ink-soft);cursor:pointer;
+  border-radius:2px;transition:all .12s;
+}
+.btn-mini:hover{border-color:var(--ink);color:var(--ink)}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(132px,1fr));
+  gap:10px;
+}
+.q{
+  border:1.5px solid var(--paper-line);
+  border-radius:3px;padding:9px 10px;background:var(--paper);
+  transition:border-color .15s;
+}
+.q.ok{border-color:var(--green);background:#f1f7f1}
+.q.no{border-color:var(--red);background:#fbf0ef}
+.q-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.q-no{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:.82rem}
+.q-meta{font-size:.66rem;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace}
+.q-toggle{display:flex;gap:4px}
+.q-toggle button{
+  flex:1;font-family:'IBM Plex Mono',monospace;font-size:.72rem;
+  padding:4px 0;border:1.5px solid var(--paper-line);
+  background:var(--paper);cursor:pointer;border-radius:2px;
+  color:var(--ink-soft);transition:all .12s;
+}
+.q-toggle button.sel-o{background:var(--green);border-color:var(--green);color:#fff}
+.q-toggle button.sel-x{background:var(--red);border-color:var(--red);color:#fff}
+.q-reason{margin-top:6px;display:none}
+.q.no .q-reason{display:block}
+.q-reason select{
+  width:100%;font-family:'Gowun Dodum',sans-serif;font-size:.72rem;
+  padding:4px 5px;border:1.5px solid var(--red-soft);
+  background:var(--paper);border-radius:2px;color:var(--ink);
+}
+
+/* ---------- 목표 입력 ---------- */
+.goals{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:16px;
+}
+.goal-card{
+  background:var(--card);border:1.5px solid var(--ink);
+  border-radius:4px;padding:16px;box-shadow:4px 4px 0 var(--shadow);
+}
+.goal-card h3{
+  font-family:'IBM Plex Mono',monospace;font-size:.92rem;
+  margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.goal-card h3 .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
+.goal-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:.86rem}
+.goal-row label{flex:1;color:var(--ink-soft)}
+.goal-row select,.goal-row input{
+  font-family:'IBM Plex Mono',monospace;font-size:.82rem;
+  padding:5px 8px;border:1.5px solid var(--ink);
+  background:var(--paper);border-radius:2px;width:92px;color:var(--ink);
+}
+.mode-pick{display:flex;gap:6px;margin-bottom:14px}
+.mode-pick button{
+  flex:1;font-family:'IBM Plex Mono',monospace;font-size:.74rem;
+  padding:7px 0;border:1.5px solid var(--ink);background:var(--paper);
+  cursor:pointer;border-radius:2px;color:var(--ink);transition:all .12s;
+}
+.mode-pick button.active{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* ---------- 실행 버튼 ---------- */
+.run{
+  margin-top:30px;text-align:center;
+}
+.run button{
+  font-family:'Black Han Sans',sans-serif;font-size:1.3rem;
+  padding:16px 48px;background:var(--red);color:#fff;
+  border:none;border-radius:4px;cursor:pointer;
+  box-shadow:5px 5px 0 var(--accent);transition:all .12s;
+  letter-spacing:.02em;
+}
+.run button:hover{transform:translate(2px,2px);box-shadow:3px 3px 0 var(--accent)}
+.run button:active{transform:translate(5px,5px);box-shadow:0 0 0 var(--accent)}
+
+/* ---------- 결과 대시보드 ---------- */
+#dash{display:none;margin-top:50px}
+.dash-divider{
+  border:none;border-top:3px double var(--ink);margin:0 0 30px;
+}
+.summary-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:14px;margin-bottom:30px;
+}
+.scard{
+  background:var(--accent);color:var(--paper);
+  border-radius:4px;padding:16px;position:relative;overflow:hidden;
+}
+.scard .lbl{font-family:'IBM Plex Mono',monospace;font-size:.68rem;letter-spacing:.18em;opacity:.6;text-transform:uppercase}
+.scard .big{font-family:'Black Han Sans',sans-serif;font-size:2rem;line-height:1.1;margin-top:6px}
+.scard .sub{font-size:.74rem;opacity:.75;margin-top:3px}
+.scard.red{background:var(--red)}
+.scard.blue{background:var(--blue)}
+.scard.green{background:var(--green)}
+
+.report-block{
+  background:var(--card);border:1.5px solid var(--ink);
+  border-radius:4px;padding:20px;margin-bottom:22px;
+  box-shadow:4px 4px 0 var(--shadow);
+}
+.report-block h3{
+  font-family:'Black Han Sans',sans-serif;font-weight:400;
+  font-size:1.25rem;margin-bottom:4px;color:var(--accent);
+  display:flex;align-items:center;gap:10px;
+}
+.report-block h3 .tag{
+  font-family:'IBM Plex Mono',monospace;font-size:.68rem;
+  padding:3px 8px;border-radius:2px;color:#fff;
+}
+.report-block .desc{font-size:.86rem;color:var(--ink-soft);margin-bottom:14px}
+
+.bar-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;font-size:.84rem}
+.bar-row .name{width:54px;font-family:'IBM Plex Mono',monospace;font-weight:600}
+.bar-track{flex:1;height:22px;background:var(--paper);border:1.5px solid var(--paper-line);border-radius:3px;position:relative;overflow:hidden}
+.bar-fill{height:100%;background:var(--blue);transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.bar-fill.goal{background:repeating-linear-gradient(45deg,var(--green),var(--green) 6px,#4f9560 6px,#4f9560 12px)}
+.bar-cur{position:absolute;top:0;height:100%;border-right:2.5px dashed var(--red);}
+.bar-val{width:118px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--ink-soft)}
+
+table.qtab{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:6px}
+table.qtab th{
+  font-family:'IBM Plex Mono',monospace;font-size:.7rem;
+  text-align:left;padding:7px 8px;border-bottom:2px solid var(--ink);
+  letter-spacing:.05em;color:var(--ink-soft);text-transform:uppercase;
+}
+table.qtab td{padding:7px 8px;border-bottom:1px dashed var(--paper-line)}
+table.qtab tr:hover td{background:var(--paper)}
+.pill{font-family:'IBM Plex Mono',monospace;font-size:.7rem;padding:2px 7px;border-radius:10px;color:#fff;white-space:nowrap}
+.eff-bar{display:inline-block;height:7px;background:var(--green);border-radius:4px;vertical-align:middle}
+
+.strat-list{list-style:none}
+.strat-list li{
+  padding:12px 14px;margin-bottom:10px;background:var(--paper);
+  border-left:4px solid var(--blue);border-radius:0 3px 3px 0;
+  font-size:.9rem;
+}
+.strat-list li.warn{border-left-color:var(--red)}
+.strat-list li.tip{border-left-color:var(--amber)}
+.strat-list li b{color:var(--accent)}
+.strat-list li .stag{
+  font-family:'IBM Plex Mono',monospace;font-size:.66rem;
+  text-transform:uppercase;letter-spacing:.1em;
+  color:var(--ink-soft);display:block;margin-bottom:3px;
+}
+
+.subj-report{margin-bottom:8px}
+.subj-report summary{
+  cursor:pointer;font-family:'IBM Plex Mono',monospace;
+  font-size:.92rem;font-weight:600;padding:12px 14px;
+  background:var(--accent);color:var(--paper);border-radius:3px;
+  list-style:none;display:flex;align-items:center;gap:12px;
+}
+.subj-report summary::-webkit-details-marker{display:none}
+.subj-report summary .arrow{transition:transform .2s}
+.subj-report[open] summary .arrow{transform:rotate(90deg)}
+.subj-report summary .gchip{margin-left:auto;font-size:.74rem;padding:3px 9px;border-radius:2px}
+.subj-body{padding:16px 4px 4px}
+
+.footnote{
+  margin-top:40px;font-size:.78rem;color:var(--ink-soft);
+  border-top:1px dashed var(--ink-soft);padding-top:16px;
+  font-family:'IBM Plex Mono',monospace;line-height:1.9;
+}
+.unfeasible{color:var(--red);font-weight:600}
+@media(max-width:600px){
+  .grid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr))}
+  h1{font-size:2.4rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">// minimum-cost score optimizer</div>
+  <h1>수능 채점<span class="stamp">분석</span></h1>
+  <p class="lead">문제별 정답률·배점은 내장돼 있습니다. 당신은 <b>맞췄는지 / 틀렸다면 왜</b>만 표시하세요.
+  목표 백분위·표준점수·최저학력기준을 넣으면, <b>어떤 문제를 더 맞췄어야 했는지</b>와 <b>시험·학습 전략</b>을 최소 비용 기준으로 계산합니다.</p>
+</header>
+
+<!-- ===== 1. 선택과목 ===== -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">1</span><h2>탐구 선택과목</h2>
+    <span class="hint">과탐 8과목 중 2개</span>
+  </div>
+  <div class="elective-bar">
+    <label>탐구 ①</label>
+    <select id="elec1"></select>
+    <label>탐구 ②</label>
+    <select id="elec2"></select>
+    <span id="elecWarn" style="color:var(--red);font-size:.8rem"></span>
+  </div>
+</section>
+
+<!-- ===== 2. 채점 ===== -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">2</span><h2>문제별 채점</h2>
+    <span class="hint" id="progressHint">0 / 0 입력</span>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="omr">
+    <div class="omr-tools">
+      <button class="btn-mini" onclick="markAll('o')">전부 O</button>
+      <button class="btn-mini" onclick="markAll('x')">전부 X</button>
+      <button class="btn-mini" onclick="clearAll()">현재과목 초기화</button>
+      <button class="btn-mini" onclick="randomFill()">랜덤 채우기(데모)</button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</section>
+
+<!-- ===== 3. 목표 ===== -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">3</span><h2>목표 설정</h2>
+    <span class="hint">과목별로 기준을 골라 입력</span>
+  </div>
+  <div class="goals" id="goals"></div>
+</section>
+
+<div class="run">
+  <button onclick="analyze()">분석 실행 →</button>
+</div>
+
+<!-- ===== 결과 ===== -->
+<div id="dash">
+  <hr class="dash-divider">
+  <div class="sec-head">
+    <span class="sec-no">✦</span><h2>분석 결과</h2>
+  </div>
+  <div class="summary-grid" id="summary"></div>
+  <div id="reports"></div>
+  <div class="footnote" id="foot"></div>
+</div>
+
+</div>
+
+<script>
+/* ============================================================
+   [편집 영역] 문제별 정답률·배점 데이터
+   ------------------------------------------------------------
+   correct_rate: 전체 정답률(0~1) · points: 배점
+   지금은 현실적인 더미값입니다. 실제 회차 데이터로 교체하세요.
+   ============================================================ */
+
+// 정답률·배점 자동 생성기 (더미). 시드 고정으로 매번 동일.
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+
+// pointsArr: 길이 n의 배점 배열(만점이 정확히 맞도록 명시). hardTail: 후반부 킬러문항.
+function genProblems(pointsArr, seed, hardTail){
+  const n=pointsArr.length;
+  const rnd = mulberry32(seed);
+  const arr = [];
+  for(let i=0;i<n;i++){
+    const points = pointsArr[i];
+    // 뒤 문항일수록 정답률이 낮아지는 경향 + 배점 높을수록 약간 낮게
+    let base = 0.92 - (i/n)*0.55 - (points-2)*0.06;
+    if(hardTail && i >= n-5) base -= 0.12;          // 킬러 문항
+    base += (rnd()-0.5)*0.18;                         // 노이즈
+    const cr = Math.min(0.97, Math.max(0.12, base));
+    arr.push({number:i+1, points, correct_rate:Math.round(cr*100)/100});
+  }
+  return arr;
+}
+// 2점 a개 + 3점 b개 + 4점 c개를 섞어 배점배열 생성 (고배점은 뒤쪽에 집중)
+function ptsMix(two,three,four){
+  const high=[];
+  for(let i=0;i<three;i++)high.push(3);
+  for(let i=0;i<four;i++)high.push(4);
+  let lo=0,hi=0,out=[],total=two+three+four;
+  for(let i=0;i<total;i++){
+    const wantHigh = (i/total)>0.55 ? true : (i%3===0);
+    if(wantHigh && hi<high.length){out.push(high[hi++]);}
+    else if(lo<two){out.push(2);lo++;}
+    else if(hi<high.length){out.push(high[hi++]);}
+    else out.push(2);
+  }
+  return out;
+}
+
+/* 실제 수능 만점: 국어/수학/영어 100점, 과탐 50점 */
+const SUBJECTS = {
+  // 국어 45문항: 2점35 + 3점10 = 100
+  "국어": {full:45, problems:genProblems(ptsMix(35,10,0),11,true),  cuts:[85,77,69,60,50,40,30,20], absolute:false, std:{mean:100,sd:20}},
+  // 수학 30문항: 2점4 + 3점12 + 4점14 = 100
+  "수학": {full:30, problems:genProblems(ptsMix(4,12,14),22,true),   cuts:[84,76,65,54,42,32,24,16], absolute:false, std:{mean:100,sd:20}},
+  // 영어 45문항: 2점35 + 3점10 = 100 (절대평가)
+  "영어": {full:45, problems:genProblems(ptsMix(35,10,0),33,false), cuts:[90,80,70,60,50,40,30,20], absolute:true,  std:null},
+};
+
+// 과탐 8과목 (모두 20문항: 2점10 + 3점10 = 50)
+const SCIENCE = {
+  "물리학Ⅰ":  {seed:101,cuts:[45,41,36,30,23,17,12,8]},
+  "화학Ⅰ":    {seed:102,cuts:[44,40,35,29,22,16,11,7]},
+  "생명과학Ⅰ":{seed:103,cuts:[45,42,37,31,24,18,13,9]},
+  "지구과학Ⅰ":{seed:104,cuts:[46,42,37,31,24,18,12,8]},
+  "물리학Ⅱ":  {seed:105,cuts:[47,43,38,32,25,18,13,9]},
+  "화학Ⅱ":    {seed:106,cuts:[46,42,37,31,24,18,12,8]},
+  "생명과학Ⅱ":{seed:107,cuts:[47,43,38,33,26,19,14,10]},
+  "지구과학Ⅱ":{seed:108,cuts:[48,44,39,33,26,19,14,10]},
+};
+for(const k in SCIENCE){
+  SCIENCE[k].full=20;
+  SCIENCE[k].problems=genProblems(ptsMix(10,10,0),SCIENCE[k].seed,false);
+  SCIENCE[k].absolute=false;
+  SCIENCE[k].std={mean:50,sd:10};
+}
+
+/* 오답 원인 → 과목별 개선 난이도 가중치 (값 클수록 교정 비쌈) */
+const REASONS = ["계산 실수","시간 부족","문제 해석 오류","개념 부족"];
+const REASON_W = {
+  "국어": {"계산 실수":1.0,"시간 부족":1.3,"문제 해석 오류":2.5,"개념 부족":2.0},
+  "수학": {"계산 실수":1.2,"시간 부족":1.5,"문제 해석 오류":1.8,"개념 부족":3.0},
+  "영어": {"계산 실수":1.0,"시간 부족":1.8,"문제 해석 오류":2.0,"개념 부족":2.5},
+  "_과탐":{"계산 실수":1.0,"시간 부족":1.3,"문제 해석 오류":1.8,"개념 부족":3.0},
+};
+function reasonW(subj){ return REASON_W[subj] || REASON_W["_과탐"]; }
+
+// 9등급 누적 백분위 (등급컷 기준)
+const GRADE_PCT = [96,89,77,60,40,23,11,4];
+
+/* ============================================================
+   상태 & 빌드
+   ============================================================ */
+let activeSubjects = [];          // 현재 분석 대상 과목명 배열
+let state = {};                   // subj -> {answers:[{ok,reason}], goal:{mode,grade,pct,std}}
+let currentTab = null;
+
+function buildSubjectList(){
+  const e1=document.getElementById('elec1').value;
+  const e2=document.getElementById('elec2').value;
+  activeSubjects = ["국어","수학","영어",e1,e2];
+}
+function subjData(s){ return SUBJECTS[s] || SCIENCE[s]; }
+
+// 선택과목 드롭다운
+function initElectives(){
+  const o = Object.keys(SCIENCE).map(k=>`<option value="${k}">${k}</option>`).join("");
+  const s1=document.getElementById('elec1'), s2=document.getElementById('elec2');
+  s1.innerHTML=o; s2.innerHTML=o;
+  s1.value="생명과학Ⅰ"; s2.value="지구과학Ⅰ";
+  s1.onchange=s2.onchange=()=>{ onElectiveChange(); };
+}
+function onElectiveChange(){
+  const e1=document.getElementById('elec1').value;
+  const e2=document.getElementById('elec2').value;
+  const w=document.getElementById('elecWarn');
+  if(e1===e2){ w.textContent="⚠ 서로 다른 과목 2개를 선택하세요"; return;}
+  w.textContent="";
+  rebuild();
+}
+
+function rebuild(){
+  buildSubjectList();
+  // 상태 보존하며 신규 과목 초기화
+  activeSubjects.forEach(s=>{
+    if(!state[s]){
+      const n=subjData(s).problems.length;
+      state[s]={answers:Array.from({length:n},()=>({ok:null,reason:null})),
+                goal:{mode:'pct',grade:2,pct:80,std:null}};
+    }
+  });
+  if(!activeSubjects.includes(currentTab)) currentTab=activeSubjects[0];
+  renderTabs(); renderGrid(); renderGoals(); updateProgress();
+}
+
+function renderTabs(){
+  const el=document.getElementById('tabs');
+  el.innerHTML=activeSubjects.map(s=>{
+    const d=subjData(s);
+    const filled=state[s].answers.filter(a=>a.ok!==null).length;
+    const done=filled===d.problems.length;
+    return `<button class="tab ${s===currentTab?'active':''} ${done?'done':''}" onclick="switchTab('${s}')">
+      ${s}<span class="badge">${d.problems.length}</span></button>`;
+  }).join("");
+}
+function switchTab(s){ currentTab=s; renderTabs(); renderGrid(); }
+
+function renderGrid(){
+  const s=currentTab, d=subjData(s), ans=state[s].answers;
+  const opts=REASONS.map(r=>`<option value="${r}">${r}</option>`).join("");
+  document.getElementById('grid').innerHTML=d.problems.map((p,i)=>{
+    const a=ans[i];
+    const cls=a.ok===true?'ok':a.ok===false?'no':'';
+    return `<div class="q ${cls}" id="q-${i}">
+      <div class="q-top">
+        <span class="q-no">#${p.number}</span>
+        <span class="q-meta">${p.points}점·${Math.round(p.correct_rate*100)}%</span>
+      </div>
+      <div class="q-toggle">
+        <button class="${a.ok===true?'sel-o':''}" onclick="setAns(${i},true)">O</button>
+        <button class="${a.ok===false?'sel-x':''}" onclick="setAns(${i},false)">X</button>
+      </div>
+      <div class="q-reason">
+        <select onchange="setReason(${i},this.value)">
+          <option value="">틀린 이유 선택</option>${opts}
+        </select>
+      </div>
+    </div>`;
+  }).join("");
+  // 복원: reason select 값
+  ans.forEach((a,i)=>{ if(a.reason){ const sel=document.querySelector(`#q-${i} .q-reason select`); if(sel) sel.value=a.reason; }});
+}
+
+function setAns(i,ok){
+  const a=state[currentTab].answers[i];
+  a.ok=ok; if(ok) a.reason=null;
+  renderGrid(); renderTabs(); updateProgress();
+}
+function setReason(i,v){ state[currentTab].answers[i].reason=v||null; }
+
+function markAll(t){
+  state[currentTab].answers.forEach(a=>{a.ok=(t==='o');if(t==='o')a.reason=null;});
+  renderGrid();renderTabs();updateProgress();
+}
+function clearAll(){
+  state[currentTab].answers.forEach(a=>{a.ok=null;a.reason=null;});
+  renderGrid();renderTabs();updateProgress();
+}
+function randomFill(){
+  const d=subjData(currentTab);
+  state[currentTab].answers.forEach((a,i)=>{
+    const cr=d.problems[i].correct_rate;
+    a.ok = Math.random() < cr*0.82;        // 정답률 기반 시뮬
+    a.reason = a.ok? null : REASONS[Math.floor(Math.random()*REASONS.length)];
+  });
+  renderGrid();renderTabs();updateProgress();
+}
+
+function updateProgress(){
+  let tot=0,fill=0;
+  activeSubjects.forEach(s=>{
+    tot+=subjData(s).problems.length;
+    fill+=state[s].answers.filter(a=>a.ok!==null).length;
+  });
+  document.getElementById('progressHint').textContent=`${fill} / ${tot} 입력`;
+}
+
+// ---- 목표 카드 ----
+function renderGoals(){
+  document.getElementById('goals').innerHTML=activeSubjects.map(s=>{
+    const d=subjData(s), g=state[s].goal;
+    const absolute=d.absolute;
+    return `<div class="goal-card">
+      <h3><span class="dot"></span>${s}</h3>
+      <div class="mode-pick">
+        <button class="${g.mode==='grade'?'active':''}" onclick="setMode('${s}','grade')">등급</button>
+        ${absolute?'':`<button class="${g.mode==='pct'?'active':''}" onclick="setMode('${s}','pct')">백분위</button>`}
+        ${absolute||!d.std?'':`<button class="${g.mode==='std'?'active':''}" onclick="setMode('${s}','std')">표준점수</button>`}
+      </div>
+      <div id="goal-input-${s}">${goalInputHtml(s)}</div>
+      ${absolute?'<div style="font-size:.74rem;color:var(--ink-soft);margin-top:8px">※ 영어는 절대평가 (백분위/표준점수 없음)</div>':''}
+    </div>`;
+  }).join("");
+}
+function goalInputHtml(s){
+  const g=state[s].goal;
+  if(g.mode==='grade'){
+    const opt=[1,2,3,4,5,6,7,8,9].map(n=>`<option value="${n}" ${g.grade===n?'selected':''}>${n}등급</option>`).join("");
+    return `<div class="goal-row"><label>목표 등급</label><select onchange="setGoalVal('${s}','grade',+this.value)">${opt}</select></div>`;
+  }
+  if(g.mode==='pct'){
+    return `<div class="goal-row"><label>목표 백분위</label><input type="number" min="1" max="100" value="${g.pct}" onchange="setGoalVal('${s}','pct',+this.value)"></div>`;
+  }
+  if(g.mode==='std'){
+    const d=subjData(s);
+    return `<div class="goal-row"><label>목표 표준점수</label><input type="number" min="0" max="200" value="${g.std??(d.std.mean+d.std.sd)}" onchange="setGoalVal('${s}','std',+this.value)"></div>`;
+  }
+}
+function setMode(s,m){ state[s].goal.mode=m; renderGoals(); }
+function setGoalVal(s,k,v){ state[s].goal[k]=v; }
+
+/* ============================================================
+   분포/백분위/표준점수 추정 (등급컷 선형보간)
+   ============================================================ */
+function interpXY(d){
+  const xs=[0,...[...d.cuts].reverse(),d.full*( d.problems.reduce((a,p)=>a+p.points,0)/d.full )];
+  // 만점 = 배점 총합
+  const maxScore=d.problems.reduce((a,p)=>a+p.points,0);
+  const X=[0,...[...d.cuts].reverse(),maxScore];
+  const Y=[0,...[...GRADE_PCT].reverse(),100];
+  // 정렬(단조 보장)
+  const pair=X.map((x,i)=>[x,Y[i]]).sort((a,b)=>a[0]-b[0]);
+  return {X:pair.map(p=>p[0]),Y:pair.map(p=>p[1]),max:maxScore};
+}
+function lerp(xArr,yArr,x){
+  if(x<=xArr[0])return yArr[0];
+  if(x>=xArr[xArr.length-1])return yArr[yArr.length-1];
+  for(let i=0;i<xArr.length-1;i++){
+    if(x>=xArr[i]&&x<=xArr[i+1]){
+      const t=(x-xArr[i])/(xArr[i+1]-xArr[i]);
+      return yArr[i]+t*(yArr[i+1]-yArr[i]);
+    }
+  }
+  return yArr[yArr.length-1];
+}
+function scoreToPct(d,score){const{X,Y}=interpXY(d);return lerp(X,Y,score);}
+function pctToScore(d,pct){const{X,Y}=interpXY(d);return lerp(Y,X,pct);}
+function gradeOfScore(d,score){ for(let i=0;i<d.cuts.length;i++) if(score>=d.cuts[i]) return i+1; return 9; }
+function scoreForGrade(d,g){ return g>=9?0:d.cuts[g-1]; }
+// 표준점수 → 점수 : z=(std-mean)/sd, pct=Φ(z)*100, score=pctToScore
+function normCdf(z){return 0.5*(1+erf(z/Math.SQRT2));}
+function normInv(p){ // Acklam 근사
+  p=Math.min(Math.max(p,1e-6),1-1e-6);
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const dd=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const pl=0.02425;let q,r;
+  if(p<pl){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((dd[0]*q+dd[1])*q+dd[2])*q+dd[3])*q+1);}
+  if(p<=1-pl){q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+  q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((dd[0]*q+dd[1])*q+dd[2])*q+dd[3])*q+1);
+}
+function erf(x){const t=1/(1+0.3275911*Math.abs(x));const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);return x>=0?y:-y;}
+function stdToScore(d,std){ const z=(std-d.std.mean)/d.std.sd; const pct=normCdf(z)*100; return pctToScore(d,pct);}
+function scoreToStd(d,score){ if(!d.std)return null; const pct=scoreToPct(d,score)/100; const z=normInv(pct); return z*d.std.sd+d.std.mean;}
+
+/* ============================================================
+   비용 모델 & 최적화
+   ============================================================ */
+function curScore(s){const d=subjData(s);return d.problems.reduce((a,p,i)=>a+(state[s].answers[i].ok?p.points:0),0);}
+function probCost(subj,p,reason){
+  const diff=Math.max(1-p.correct_rate,0.05);
+  const w=reasonW(subj)[reason] ?? Math.max(...Object.values(reasonW(subj)));
+  return diff*w;
+}
+// 0/1 배낭 DP: 추가점수 s 얻는 최소비용 (정수배점 가정)
+function dpMinCost(subj,need){
+  if(need<=0) return {cost:0,chosen:[]};
+  const d=subjData(subj);
+  const wrong=[];
+  d.problems.forEach((p,i)=>{ if(!state[subj].answers[i].ok){
+    wrong.push({...p,idx:i,reason:state[subj].answers[i].reason,
+                cost:probCost(subj,p,state[subj].answers[i].reason),
+                eff:p.points/probCost(subj,p,state[subj].answers[i].reason)});
+  }});
+  const total=wrong.reduce((a,p)=>a+p.points,0);
+  need=Math.ceil(need);
+  if(total<need) return {cost:Infinity,chosen:wrong,short:true};
+  const INF=Infinity;
+  const dp=new Array(total+1).fill(INF); dp[0]=0;
+  const pick=Array.from({length:total+1},()=>[]);
+  wrong.forEach((p,idx)=>{
+    for(let v=total;v>=p.points;v--){
+      if(dp[v-p.points]+p.cost<dp[v]){
+        dp[v]=dp[v-p.points]+p.cost;
+        pick[v]=[...pick[v-p.points],idx];
+      }
+    }
+  });
+  let bestV=-1,bestC=INF;
+  for(let v=need;v<=total;v++) if(dp[v]<bestC){bestC=dp[v];bestV=v;}
+  if(bestV<0) return {cost:INF,chosen:[]};
+  return {cost:bestC,chosen:pick[bestV].map(i=>wrong[i]).sort((a,b)=>b.eff-a.eff)};
+}
+
+function targetScore(s){
+  const d=subjData(s),g=state[s].goal;
+  if(g.mode==='grade') return scoreForGrade(d,g.grade);
+  if(g.mode==='pct')   return pctToScore(d,g.pct);
+  if(g.mode==='std')   return stdToScore(d,g.std??(d.std.mean+d.std.sd));
+}
+
+/* ============================================================
+   분석 실행 + 대시보드 렌더
+   ============================================================ */
+function analyze(){
+  // 입력 검증
+  for(const s of activeSubjects){
+    const blank=state[s].answers.some(a=>a.ok===null);
+    if(blank){ if(!confirm(`'${s}'에 미입력 문항이 있습니다. 미입력은 '틀림'으로 간주하고 진행할까요?`)) {switchTab(s);return;} 
+      state[s].answers.forEach(a=>{if(a.ok===null)a.ok=false;}); }
+  }
+  const results=activeSubjects.map(s=>{
+    const d=subjData(s), cur=curScore(s), tgt=targetScore(s);
+    const need=Math.max(0,tgt-cur);
+    const plan=dpMinCost(s,need);
+    return {s,d,cur,tgt,need,plan,
+      curGrade:gradeOfScore(d,cur),tgtGrade:gradeOfScore(d,tgt),
+      curPct:scoreToPct(d,cur),curStd:scoreToStd(d,cur)};
+  });
+  renderDash(results);
+  document.getElementById('dash').style.display='block';
+  document.getElementById('dash').scrollIntoView({behavior:'smooth'});
+}
+
+function gradeColor(g){return g<=2?'var(--green)':g<=4?'var(--blue)':g<=6?'var(--amber)':'var(--red)';}
+function reasonColor(r){return {"계산 실수":"#6b8e3d","시간 부족":"#c98a1e","문제 해석 오류":"#2f5d8a","개념 부족":"#d2382c"}[r]||"#6b6356";}
+
+function renderDash(R){
+  // ---- 요약 카드 ----
+  const totalCost=R.reduce((a,r)=>a+(isFinite(r.plan.cost)?r.plan.cost:0),0);
+  const totalNeed=R.reduce((a,r)=>a+r.plan.chosen.length,0);
+  const infeasible=R.filter(r=>!isFinite(r.plan.cost)).length;
+  const curRawTotal=R.reduce((a,r)=>a+r.cur,0);
+  document.getElementById('summary').innerHTML=`
+    <div class="scard"><div class="lbl">현재 원점수 합</div><div class="big">${curRawTotal.toFixed(0)}</div><div class="sub">${R.length}개 과목</div></div>
+    <div class="scard red"><div class="lbl">총 학습 비용</div><div class="big">${totalCost.toFixed(1)}</div><div class="sub">난이도×원인 단위</div></div>
+    <div class="scard blue"><div class="lbl">더 맞춰야 할 문항</div><div class="big">${totalNeed}</div><div class="sub">전 과목 합산</div></div>
+    <div class="scard ${infeasible?'red':'green'}"><div class="lbl">목표 달성</div><div class="big">${infeasible?infeasible+'과목 ✗':'전부 ✓'}</div><div class="sub">${infeasible?'오답 다 맞춰도 부족':'모든 목표 도달 가능'}</div></div>`;
+
+  // ---- 과목별 막대 (현재→목표) ----
+  let html=`<div class="report-block"><h3>📊 과목별 현황과 목표</h3>
+    <div class="desc">빨간 점선 = 현재 위치 / 빗금 = 목표 지점. 막대는 만점 대비 비율입니다.</div>`;
+  R.forEach(r=>{
+    const maxS=r.d.problems.reduce((a,p)=>a+p.points,0);
+    const curPctW=r.cur/maxS*100, tgtPctW=r.tgt/maxS*100;
+    const stdTxt=r.curStd?` · 표준 ${r.curStd.toFixed(0)}`:'';
+    const pctTxt=r.d.absolute?'(절대평가)':`백분위 ${r.curPct.toFixed(0)}`;
+    html+=`<div class="bar-row">
+      <span class="name">${r.s}</span>
+      <div class="bar-track">
+        <div class="bar-fill goal" style="width:${tgtPctW}%"></div>
+        <div class="bar-cur" style="width:${curPctW}%"></div>
+      </div>
+      <span class="bar-val">${r.cur.toFixed(0)}→${r.tgt.toFixed(0)} · ${r.curGrade}→${r.tgtGrade}등급</span>
+    </div>
+    <div style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 12px 66px;font-family:'IBM Plex Mono',monospace">${pctTxt}${stdTxt}</div>`;
+  });
+  html+=`</div>`;
+
+  // ---- 과목별 상세 (어떤 문제를 더 맞췄어야 하나) ----
+  R.forEach(r=>{
+    const feasible=isFinite(r.plan.cost);
+    const gc=gradeColor(r.tgtGrade);
+    html+=`<details class="subj-report" ${r.need>0?'open':''}>
+      <summary><span class="arrow">▸</span> ${r.s}
+        <span class="gchip" style="background:${gc};color:#fff">${r.need>0?`+${r.plan.chosen.length}문제 / 비용 ${isFinite(r.plan.cost)?r.plan.cost.toFixed(1):'∞'}`:'목표 달성됨 ✓'}</span>
+      </summary>
+      <div class="subj-body">`;
+    if(r.need<=0){
+      html+=`<p style="color:var(--green)">이미 목표(${r.tgtGrade}등급, ${r.tgt.toFixed(0)}점)를 충족합니다. 현재 ${r.cur.toFixed(0)}점.</p>`;
+    } else if(!feasible){
+      html+=`<p class="unfeasible">⚠ 틀린 문제를 전부 맞춰도 목표 점수(${r.tgt.toFixed(0)})에 도달하지 못합니다. 목표를 현실적으로 조정하거나, 이 과목은 기초 개념부터 장기 보강이 필요합니다.</p>`;
+    }
+    if(r.plan.chosen.length){
+      // 효율 정규화 (막대용)
+      const maxEff=Math.max(...r.plan.chosen.map(p=>p.eff));
+      html+=`<p class="desc">아래 ${r.plan.chosen.length}문제를 맞췄다면 최소 비용으로 목표에 도달했습니다. <b>효율(배점÷비용)이 높은 순</b> = 우선 공략 순서입니다.</p>
+      <table class="qtab"><thead><tr>
+        <th>문항</th><th>배점</th><th>정답률</th><th>틀린이유</th><th>개선비용</th><th>효율(우선순위)</th>
+      </tr></thead><tbody>`;
+      r.plan.chosen.forEach(p=>{
+        const rc=reasonColor(p.reason);
+        html+=`<tr>
+          <td><b>#${p.number}</b></td>
+          <td>${p.points}점</td>
+          <td>${Math.round(p.correct_rate*100)}%</td>
+          <td><span class="pill" style="background:${rc}">${p.reason||'미입력'}</span></td>
+          <td>${p.cost.toFixed(2)}</td>
+          <td><span class="eff-bar" style="width:${Math.max(8,p.eff/maxEff*80)}px"></span> ${p.eff.toFixed(1)}</td>
+        </tr>`;
+      });
+      html+=`</tbody></table>`;
+      // 과목별 전략
+      html+=subjectStrategy(r);
+    }
+    html+=`</div></details>`;
+  });
+
+  // ---- 전체 시험·학습 전략 ----
+  html+=globalStrategy(R);
+
+  document.getElementById('reports').innerHTML=html;
+
+  // 푸터
+  document.getElementById('foot').innerHTML=
+    `// 비용 = (1 − 정답률) × 오답원인가중치 &nbsp;|&nbsp; 효율 = 배점 ÷ 비용<br>`+
+    `// 최적화: 0/1 배낭 DP (목표점수 도달 최소비용) &nbsp;|&nbsp; 분포: 등급컷 선형보간<br>`+
+    `// 정답률·배점은 현재 더미값입니다. 코드 상단 SUBJECTS / SCIENCE 블록에서 실제 회차 데이터로 교체하세요.`;
+}
+
+/* 과목별 전략 추천 */
+function subjectStrategy(r){
+  const chosen=r.plan.chosen;
+  // 원인 집계
+  const cnt={}; chosen.forEach(p=>{cnt[p.reason]=(cnt[p.reason]||0)+1;});
+  const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+  let out=`<ul class="strat-list" style="margin-top:14px">`;
+  // 가장 흔한 원인 기반 조언
+  const advice={
+    "계산 실수":["검산 루틴", "낮은 비용으로 가장 먼저 잡을 수 있는 점수입니다. 풀이 마지막에 단위·부호·대입을 재확인하는 30초 검산 습관, 그리고 풀이 과정을 또박또박 적는 훈련만으로 상당수 회복됩니다."],
+    "시간 부족":["시간 배분 전략", "실력보다 운영 문제입니다. 한 문제 집착 시간 상한(예: 1.5분)을 정해 넘기면 표시 후 패스, 쉬운 문항 먼저 확보하는 순서 전략과 시간 재며 푸는 모의 훈련을 권합니다."],
+    "문제 해석 오류":["발문 정독 훈련", "지문·발문을 잘못 읽어 잃는 점수입니다. 조건에 밑줄·동그라미 표시, '무엇을 묻는가'를 한 줄로 재진술한 뒤 푸는 습관으로 교정됩니다."],
+    "개념 부족":["개념 재학습", "가장 비싼 영역입니다. 단기 암기가 아니라 해당 단원 개념을 처음부터 다시 정리하고, 같은 유형 문제를 묶어 반복 풀이해야 합니다. 시간 투자 대비 효과가 늦게 나타나니 가장 먼저 시작하세요."],
+  };
+  top.forEach(([reason,n])=>{
+    const a=advice[reason];
+    if(!a)return;
+    const cls=reason==="개념 부족"?"warn":reason==="계산 실수"?"tip":"";
+    out+=`<li class="${cls}"><span class="stag">${reason} · ${n}문항</span><b>${a[0]}</b> — ${a[1]}</li>`;
+  });
+  // 효율 최상위 1문제 콕 집기
+  if(chosen[0]){
+    out+=`<li class="tip"><span class="stag">바로 잡을 한 문제</span><b>#${chosen[0].number}번</b>이 효율 최고(${chosen[0].eff.toFixed(1)}). 배점 ${chosen[0].points}점인데 개선비용은 ${chosen[0].cost.toFixed(2)}로 낮습니다. 여기부터 시작하세요.</li>`;
+  }
+  out+=`</ul>`;
+  return out;
+}
+
+/* 전체 시험 전략 */
+function globalStrategy(R){
+  let out=`<div class="report-block"><h3>🎯 종합 시험·학습 전략 <span class="tag" style="background:var(--accent)">PRIORITY</span></h3>
+    <div class="desc">과목 간 자원 배분 관점에서의 권고입니다.</div><ul class="strat-list">`;
+  // 비용 대비 효과가 가장 좋은 과목 = 효율 평균 최고
+  const feas=R.filter(r=>r.need>0 && isFinite(r.plan.cost) && r.plan.chosen.length);
+  if(feas.length){
+    const byCost=[...feas].sort((a,b)=>a.plan.cost-b.plan.cost);
+    out+=`<li><span class="stag">가성비 1순위 과목</span><b>${byCost[0].s}</b> — 비용 ${byCost[0].plan.cost.toFixed(1)}로 목표(${byCost[0].tgtGrade}등급) 도달 가능. 단기간에 등급을 올리기 가장 쉬운 과목이니 먼저 투자하세요.</li>`;
+    const byHard=[...feas].sort((a,b)=>b.plan.cost-a.plan.cost);
+    if(byHard[0].s!==byCost[0].s)
+      out+=`<li class="warn"><span class="stag">장기전 과목</span><b>${byHard[0].s}</b> — 비용 ${byHard[0].plan.cost.toFixed(1)}로 가장 무겁습니다. 시험이 임박했다면 욕심을 줄이고, 시간이 있다면 가장 먼저 꾸준히 시작해야 합니다.</li>`;
+  }
+  // 전 과목 공통 원인
+  const allReason={};
+  R.forEach(r=>r.plan.chosen.forEach(p=>{allReason[p.reason]=(allReason[p.reason]||0)+1;}));
+  const topR=Object.entries(allReason).sort((a,b)=>b[1]-a[1])[0];
+  if(topR){
+    const map={
+      "계산 실수":"전 과목에 걸쳐 실수가 가장 많습니다. 정확도 훈련(검산·풀이 정서)이 가장 즉효성 있는 점수원입니다.",
+      "시간 부족":"시간 부족이 전반적입니다. 실전과 동일한 시간으로 모의고사를 반복해 운영 능력을 끌어올리세요.",
+      "문제 해석 오류":"발문 오독이 반복됩니다. 모든 과목에서 '무엇을 묻는지' 재진술하는 습관을 들이세요.",
+      "개념 부족":"개념 결손이 광범위합니다. 새 문제를 더 푸는 것보다, 틀린 단원을 개념부터 다시 잡는 편이 장기적으로 효율적입니다.",
+    };
+    out+=`<li class="${topR[0]==='개념 부족'?'warn':''}"><span class="stag">가장 빈번한 오답 원인 · ${topR[1]}문항</span><b>${topR[0]}</b> — ${map[topR[0]]}</li>`;
+  }
+  // 최저학력기준 관점
+  const failGrade=R.filter(r=>r.tgtGrade && r.curGrade>r.tgtGrade);
+  if(failGrade.length){
+    out+=`<li><span class="stag">최저학력기준 체크</span>현재 목표 등급에 못 미치는 과목: <b>${failGrade.map(r=>r.s).join(', ')}</b>. 수시 최저를 맞춰야 한다면 이 과목들의 목표 달성이 최우선입니다.</li>`;
+  } else {
+    out+=`<li><span class="stag">최저학력기준 체크</span>설정한 목표 등급을 기준으로 보면 큰 결손 과목은 없습니다. 총점 극대화 방향으로 가성비 과목에 더 투자하세요.</li>`;
+  }
+  out+=`</ul></div>`;
+  return out;
+}
+
+/* ---- 초기화 ---- */
+initElectives();
+rebuild();
+</script>
+</body>
+</html>
